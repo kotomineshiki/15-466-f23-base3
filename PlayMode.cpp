@@ -40,7 +40,7 @@ Load< Scene > hexapod_scene(LoadTagDefault, []() -> Scene const * {
 	});
 });
 
-Load< Sound::Sample > dusty_floor_sample(LoadTagDefault, []() -> Sound::Sample const * {
+Load< Sound::Sample > BGM(LoadTagDefault, []() -> Sound::Sample const * {
 	return new Sound::Sample(data_path("BeepBox-Song.wav"));
 });
 Load< Sound::Sample > UpEffect(LoadTagDefault, []() -> Sound::Sample const * {
@@ -88,8 +88,8 @@ PlayMode::PlayMode() : scene(*hexapod_scene) {
 
 	//start music loop playing:
 	// (note: position will be over-ridden in update())
-	leg_tip_loop = Sound::loop_3D(*dusty_floor_sample, 1.0f, get_leg_tip_position(), 10.0f);
-	
+	//leg_tip_loop = Sound::loop_3D(*dusty_floor_sample, 1.0f, get_leg_tip_position(), 10.0f);
+	Sound::loop(*BGM,1.0f,0.0f);
 }
 
 PlayMode::~PlayMode() {
@@ -175,7 +175,7 @@ void PlayMode::update(float elapsed) {
 	);
 
 	//move sound to follow leg tip position:
-	leg_tip_loop->set_position(get_leg_tip_position(), 1.0f / 60.0f);
+	//leg_tip_loop->set_position(get_leg_tip_position(), 1.0f / 60.0f);
 
 	//move camera:
 	{
@@ -239,7 +239,7 @@ void PlayMode::update(float elapsed) {
 		if(glm::length(distance)<SnowBallWeight){
 			std::cout<<"Coin Touched"<<std::endl;
 			currentCoinEaten++;
-
+			if(currentCoinEaten>12)win=true;
 			if(coins[i]->position.z>4.0f){
 				Sound::play(*UpEffect, 1.0f, 1.0f);
 			}else{
@@ -332,22 +332,22 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 		));
 
 		constexpr float H = 0.09f;
-		lines.draw_text("WASD moves the ball; escape ungrabs mouse",
+		lines.draw_text("W/D to Dump/Dive",
 			glm::vec3(-aspect + 0.1f * H, -1.0 + 0.1f * H, 0.0),
 			glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
 			glm::u8vec4(0x00, 0x00, 0x00, 0x00));
-		lines.draw_text("Eat coins to grow up",
+		lines.draw_text("Try to eat Coins",
 			glm::vec3(-aspect + 1.2f * H, -1.0 + 1.2f * H, 0.0),
 			glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
 			glm::u8vec4(0x00, 0x00, 0x00, 0x00));
 
 		if(win){
-			lines.draw_text("The House was Destroyed by the big snowBall!",
+			lines.draw_text("You Win!",
 			glm::vec3(-aspect + 8.0f * H, -1.0 + 8.0f * H, 0.0),
 			glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
 			glm::u8vec4(0x00, 0x00, 0x00, 0x00));
 		}else if(currentCoinEaten<10){
-			lines.draw_text("You need to grow bigger to destroy the house",
+			lines.draw_text("",
 			glm::vec3(-aspect + 8.0f * H, -1.0 + 8.0f * H, 0.0),
 			glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
 			glm::u8vec4(0x00, 0x00, 0x00, 0x00));

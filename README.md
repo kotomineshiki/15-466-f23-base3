@@ -1,8 +1,8 @@
-# (TODO: your game's title)
+# Snow Dash
 
-Author: (TODO: your name)
+Author: yiquz(Pearson)
 
-Design: (TODO: In two sentences or fewer, describe what is new and interesting about your game.)
+Design: try to eat coin at appropriate time. When you succesfully do this, you would find your action is on the beat.
 
 Screen Shot:
 
@@ -10,6 +10,8 @@ Screen Shot:
 
 How To Play:
 
-(TODO: describe the controls and (if needed) goals/strategy.)
+Press W to jump
+Press D to dive
+The ball will automatically move forward
 
 This game was built with [NEST](NEST.md).
