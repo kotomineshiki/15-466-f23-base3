@@ -14,16 +14,20 @@
 
 GLuint hexapod_meshes_for_lit_color_texture_program = 0;
 Load< MeshBuffer > hexapod_meshes(LoadTagDefault, []() -> MeshBuffer const * {
-	MeshBuffer const *ret = new MeshBuffer(data_path("hexapod.pnct"));
+	MeshBuffer const *ret = new MeshBuffer(data_path("MyTestScene.pnct"));
 	hexapod_meshes_for_lit_color_texture_program = ret->make_vao_for_program(lit_color_texture_program->program);
 	return ret;
 });
 
 Load< Scene > hexapod_scene(LoadTagDefault, []() -> Scene const * {
-	return new Scene(data_path("hexapod.scene"), [&](Scene &scene, Scene::Transform *transform, std::string const &mesh_name){
+	return new Scene(data_path("MyTestScene.scene"), [&](Scene &scene, Scene::Transform *transform, std::string const &mesh_name){
 		Mesh const &mesh = hexapod_meshes->lookup(mesh_name);
 
-		scene.drawables.emplace_back(transform);
+		if(transform->name.substr(0,4)=="Coll"){
+
+		}else{
+			scene.drawables.emplace_back(transform);
+		}
 		Scene::Drawable &drawable = scene.drawables.back();
 
 		drawable.pipeline = lit_color_texture_program_pipeline;
@@ -39,20 +43,43 @@ Load< Scene > hexapod_scene(LoadTagDefault, []() -> Scene const * {
 Load< Sound::Sample > dusty_floor_sample(LoadTagDefault, []() -> Sound::Sample const * {
 	return new Sound::Sample(data_path("BeepBox-Song.wav"));
 });
+Load< Sound::Sample > UpEffect(LoadTagDefault, []() -> Sound::Sample const * {
+	return new Sound::Sample(data_path("BBSEUP.wav"));
+});
+Load< Sound::Sample > DownEffect(LoadTagDefault, []() -> Sound::Sample const * {
+	return new Sound::Sample(data_path("BBSEDown.wav"));
+});
 
 PlayMode::PlayMode() : scene(*hexapod_scene) {
 	//get pointers to leg for convenience:
 	for (auto &transform : scene.transforms) {
-		if (transform.name == "Hip.FL") hip = &transform;
-		else if (transform.name == "UpperLeg.FL") upper_leg = &transform;
-		else if (transform.name == "LowerLeg.FL") lower_leg = &transform;
+		if (transform.name == "Ground") ground = &transform;
+		if (transform.name == "UpperLeg.FL") upper_leg = &transform;
+		if (transform.name == "LowerLeg.FL") lower_leg = &transform;
+		if(transform.name=="Sphere")playerBall=&transform;
+		if(transform.name.substr(0,4)=="Coin")coins.push_back(&transform);
+		if(transform.name.substr(0,4)=="Coll")colliders.push_back(&transform);
 	}
-	if (hip == nullptr) throw std::runtime_error("Hip not found.");
-	if (upper_leg == nullptr) throw std::runtime_error("Upper leg not found.");
-	if (lower_leg == nullptr) throw std::runtime_error("Lower leg not found.");
 
-	hip_base_rotation = hip->rotation;
-	upper_leg_base_rotation = upper_leg->rotation;
+	if (ground == nullptr) throw std::runtime_error("ground not found.");
+	if (playerBall == nullptr) throw std::runtime_error("Sphere not found.");
+	if (lower_leg == nullptr) throw std::runtime_error("Lower leg not found.");
+	std::cout<<coins.size()<<std::endl;
+
+	playerBall->position.z=3.0f;
+	for(int i=0;i<coins.size();++i){
+		coins[i]->position=playerBall->position+glm::vec3(0,(1.2f+1.6f*currentIndex)*5.0f,0.0f);
+		currentIndex++;
+		if(i%2==0){
+			coins[i]->position.z=5.0f;
+		}else{
+			coins[i]->position.z=1.0f;
+		}
+
+	}
+
+	hip_base_rotation = ground->rotation;
+	upper_leg_base_rotation = coins[0]->rotation;
 	lower_leg_base_rotation = lower_leg->rotation;
 
 	//get pointer to camera for convenience:
@@ -62,6 +89,7 @@ PlayMode::PlayMode() : scene(*hexapod_scene) {
 	//start music loop playing:
 	// (note: position will be over-ridden in update())
 	leg_tip_loop = Sound::loop_3D(*dusty_floor_sample, 1.0f, get_leg_tip_position(), 10.0f);
+	
 }
 
 PlayMode::~PlayMode() {
@@ -133,10 +161,10 @@ void PlayMode::update(float elapsed) {
 	wobble += elapsed / 10.0f;
 	wobble -= std::floor(wobble);
 
-	hip->rotation = hip_base_rotation * glm::angleAxis(
+	/*hip->rotation = hip_base_rotation * glm::angleAxis(
 		glm::radians(5.0f * std::sin(wobble * 2.0f * float(M_PI))),
 		glm::vec3(0.0f, 1.0f, 0.0f)
-	);
+	);*/
 	upper_leg->rotation = upper_leg_base_rotation * glm::angleAxis(
 		glm::radians(7.0f * std::sin(wobble * 2.0f * 2.0f * float(M_PI))),
 		glm::vec3(0.0f, 0.0f, 1.0f)
@@ -155,20 +183,39 @@ void PlayMode::update(float elapsed) {
 		//combine inputs into a move:
 		constexpr float PlayerSpeed = 30.0f;
 		glm::vec2 move = glm::vec2(0.0f);
-		if (left.pressed && !right.pressed) move.x =-1.0f;
-		if (!left.pressed && right.pressed) move.x = 1.0f;
-		if (down.pressed && !up.pressed) move.y =-1.0f;
-		if (!down.pressed && up.pressed) move.y = 1.0f;
+	//	if (left.pressed && !right.pressed) move.x =-1.0f;
+	//	if (!left.pressed && right.pressed) move.x = 1.0f;
+		if (down.pressed && !up.pressed){
+			playerBall->position.z=1.0f;
+		}
+		if (!down.pressed && up.pressed){
+			playerBall->position.z=5.0f;
+		} 
+		if(!down.pressed && !up.pressed){
+			playerBall->position.z=3.0f;
+		}
 
 		//make it so that moving diagonally doesn't go faster:
-		if (move != glm::vec2(0.0f)) move = glm::normalize(move) * PlayerSpeed * elapsed;
+		if (move != glm::vec2(0.0f)) move = glm::normalize(move) * PlayerSpeed;// * elapsed;
+
+		glm::mat4x3 worldPosition=ground->make_local_to_world();//get the world vector of the ground
+		glm::vec3 world_right=glm::normalize(worldPosition[0]);
+		glm::vec3 world_forward=glm::normalize(worldPosition[1]);
+		glm::vec3 world_up=-glm::normalize(worldPosition[2]);
 
 		glm::mat4x3 frame = camera->transform->make_local_to_parent();
 		glm::vec3 frame_right = frame[0];
 		//glm::vec3 up = frame[1];
 		glm::vec3 frame_forward = -frame[2];
 
-		camera->transform->position += move.x * frame_right + move.y * frame_forward;
+		//currentForce//(move.x * world_right + move.y * world_forward)*50.0f-currentSpeed*1.0f;
+		//currentSpeed+=currentForce*elapsed;
+		//currentSpeed=move.y*world_forward*elapsed*10.0f;
+		currentSpeed=glm::vec3(0,5,0);
+		//std::cout<<currentSpeed.length()*elapsed*40<<std::endl;
+		playerBall->scale=glm::vec3(SnowBallWeight,SnowBallWeight,SnowBallWeight);
+
+		//camera->transform->position += move.x * frame_right + move.y * frame_forward;
 	}
 
 	{ //update listener to camera position:
@@ -177,7 +224,75 @@ void PlayMode::update(float elapsed) {
 		glm::vec3 frame_at = frame[3];
 		Sound::listener.set_position_right(frame_at, frame_right, 1.0f / 60.0f);
 	}
+	//Rotate Coins
+	for(int i=0;i<coins.size();++i){
+		//glm::quat=glm::quat(,);
+		coins[i]->rotation = coins[i]->rotation * glm::angleAxis(
+		glm::radians(700.0f * elapsed),
+		glm::vec3(1.0f, 0.0f, 0.0f)
+	);
+	}
+	//Detect Collision between Coins and Player
+	for(int i=0;i<coins.size();++i){
+		glm::vec3 distance=coins[i]->position-playerBall->position;
+	//	std::cout<<glm::length(distance)<<std::endl;
+		if(glm::length(distance)<SnowBallWeight){
+			std::cout<<"Coin Touched"<<std::endl;
+			currentCoinEaten++;
 
+			if(coins[i]->position.z>4.0f){
+				Sound::play(*UpEffect, 1.0f, 1.0f);
+			}else{
+				Sound::play(*DownEffect, 1.0f, 1.0f);
+			}
+
+			coins[i]->position=glm::vec3(playerBall->position.x,(1.2f+1.6f*currentIndex)*5.0f,0.0f);
+			if(currentIndex%2==0){
+				coins[i]->position.z=5.0f;
+			}else{
+				coins[i]->position.z=1.0f;
+			}
+			currentIndex++;
+			//coins[i]->position=glm::vec3(1000.0f,0,0);
+		//	SnowBallWeight=SnowBallWeight+0.15f;
+
+		}
+		if(coins[i]->position.y<playerBall->position.y-10){
+			coins[i]->position=glm::vec3(playerBall->position.x,(1.2f+1.6f*currentIndex)*5.0f,0.0f);
+			if(currentIndex%2==0){
+				coins[i]->position.z=5.0f;
+			}else{
+				coins[i]->position.z=1.0f;
+			}
+			currentIndex++;
+		}
+	}
+	//Detect Collision between Player and Colliders
+	for(int i=0;i<colliders.size();++i){
+		glm::vec3 distance=colliders[i]->position-playerBall->position;
+
+		if(glm::length(distance)<0.7*glm::length( SnowBallWeight+colliders[i]->scale*0.5f)){
+			if(colliders[i]->name=="Collider.001"){
+				if(currentCoinEaten>=10){
+					win=true;
+				}
+			std::cout<<"FInal"<<std::endl;
+		}
+			//now, if the current vector is toward it ,stop it
+			glm::vec3 nextframe=playerBall->position+currentSpeed*elapsed;
+			glm::vec3 newDistance=nextframe-colliders[i]->position;
+			if(glm::length(distance)>glm::length(newDistance)){
+				currentSpeed=glm::vec3(0,0,0);
+			}
+		}
+	}
+
+	playerBall->position+=currentSpeed*elapsed;
+	glm::vec3 temp=currentSpeed*elapsed;
+	glm::vec3 tempRotate(-temp.y,temp.x,0);
+	playerBall->rotation*=glm::quat(tempRotate);
+	camera->transform->position =playerBall->position+glm::vec3(20.0f,0.0f,0.0f);
+	camera->transform->position.z=3.0f;
 	//reset button press counters:
 	left.downs = 0;
 	right.downs = 0;
@@ -217,17 +332,28 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 		));
 
 		constexpr float H = 0.09f;
-		lines.draw_text("Mouse motion rotates camera; WASD moves; escape ungrabs mouse",
+		lines.draw_text("WASD moves the ball; escape ungrabs mouse",
 			glm::vec3(-aspect + 0.1f * H, -1.0 + 0.1f * H, 0.0),
 			glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
 			glm::u8vec4(0x00, 0x00, 0x00, 0x00));
-		float ofs = 2.0f / drawable_size.y;
-		lines.draw_text("Mouse motion rotates camera; WASD moves; escape ungrabs mouse",
-			glm::vec3(-aspect + 0.1f * H + ofs, -1.0 + + 0.1f * H + ofs, 0.0),
+		lines.draw_text("Eat coins to grow up",
+			glm::vec3(-aspect + 1.2f * H, -1.0 + 1.2f * H, 0.0),
 			glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
-			glm::u8vec4(0xff, 0xff, 0xff, 0x00));
+			glm::u8vec4(0x00, 0x00, 0x00, 0x00));
+
+		if(win){
+			lines.draw_text("The House was Destroyed by the big snowBall!",
+			glm::vec3(-aspect + 8.0f * H, -1.0 + 8.0f * H, 0.0),
+			glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
+			glm::u8vec4(0x00, 0x00, 0x00, 0x00));
+		}else if(currentCoinEaten<10){
+			lines.draw_text("You need to grow bigger to destroy the house",
+			glm::vec3(-aspect + 8.0f * H, -1.0 + 8.0f * H, 0.0),
+			glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
+			glm::u8vec4(0x00, 0x00, 0x00, 0x00));
+		}
+		GL_ERRORS();
 	}
-	GL_ERRORS();
 }
 
 glm::vec3 PlayMode::get_leg_tip_position() {

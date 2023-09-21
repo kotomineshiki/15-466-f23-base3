@@ -29,9 +29,15 @@ struct PlayMode : Mode {
 	Scene scene;
 
 	//hexapod leg to wobble:
-	Scene::Transform *hip = nullptr;
+	Scene::Transform *ground = nullptr;
 	Scene::Transform *upper_leg = nullptr;
 	Scene::Transform *lower_leg = nullptr;
+	Scene::Transform *playerBall=nullptr;
+
+	std::vector<Scene::Transform*> coins;
+	std::vector<Scene::Transform*> colliders;
+	int currentCoinEaten=0;
+
 	glm::quat hip_base_rotation;
 	glm::quat upper_leg_base_rotation;
 	glm::quat lower_leg_base_rotation;
@@ -41,8 +47,15 @@ struct PlayMode : Mode {
 
 	//music coming from the tip of the leg (as a demonstration):
 	std::shared_ptr< Sound::PlayingSample > leg_tip_loop;
-	
+	std::shared_ptr< Sound::PlayingSample > upEffect;
+	std::shared_ptr< Sound::PlayingSample > downEffect;
+
 	//camera:
 	Scene::Camera *camera = nullptr;
+	float SnowBallWeight=1.0f;
+	bool win=false;
+	int currentIndex=0;
+	glm::vec3 currentSpeed= glm::vec3(0,0,0);
+	glm::vec3 currentForce= glm::vec3(0,0,0);
 
 };
